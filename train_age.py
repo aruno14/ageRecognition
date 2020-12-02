@@ -18,15 +18,13 @@ import argparse
 parser = argparse.ArgumentParser(description="Create age model", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--image_size", type=int, default=48, help="Input image size")
 parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
-parser.add_argument("--class_count", type=int, default=97, help="Class count")
-parser.add_argument("--epoch", type=int, default=10, help="Epoch count")
+parser.add_argument("--epoch", type=int, default=15, help="Epoch count")
 parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
 parser.add_argument("--data_divider", type=int, default=1, help="Data divider")
 args = parser.parse_args()
 
 size = args.image_size
 batch_size = args.batch_size
-classesCount = args.class_count
 epoch = args.epoch
 data_divider = args.data_divider
 lr = args.lr
@@ -72,7 +70,6 @@ minVal = min(countCat.values())
 print("minVal: ", minVal)
 for key in countCat:
     class_weight[key] = 1
-    #print(str(class_weight[key]) +"/" + str(countCat[key]) + "*" + str(minVal))
     class_weight[key]/=countCat[key]
     class_weight[key]*=minVal
 print("class_weight:", class_weight)
@@ -99,7 +96,6 @@ for key in train_generator.class_indices:
 class_weight = class_weight_tmp
 print("class_weight:", class_weight)
 
-
 validation_generator = train_datagen.flow_from_dataframe(
         dataframe=train_df,
         x_col="filename",
@@ -116,7 +112,7 @@ if latest:
     classifier.load_weights(latest)
 elif os.path.exists(modelFileName):
     print("Load: " + modelFileName)
-    classifier = load_model(modelFileName)
+    classifier = load_model(modelFileName, custom_objects={"age_mae":age_mae})
 else:
     print("Input size: ", size)
     classifier = tensorflow.keras.applications.mobilenet_v2.MobileNetV2(include_top=True, weights=None, input_tensor=None, input_shape=(size, size, 3), pooling=None, classes=classesCount)
@@ -128,14 +124,11 @@ callbacks = [
     ModelCheckpoint(checkpoint_path, monitor='val_loss', mode='min', save_best_only=True, verbose=1, save_weights_only=True),
     TensorBoard(log_dir='logs/{}'.format(time()))]
 
-history = classifier.fit_generator(
+history = classifier.fit(
         train_generator,
         shuffle=True,
-        steps_per_epoch=train_generator.samples/data_divider,
         epochs=epoch,
         validation_data=validation_generator,
-        validation_steps=validation_generator.samples/data_divider,
-        #use_multiprocessing=True,
-        class_weight=class_weight,
-        callbacks=callbacks)
+        class_weight=class_weight)#,
+#        callbacks=callbacks)
 classifier.save(modelFileName)
