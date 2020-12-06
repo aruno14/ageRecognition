@@ -1,11 +1,10 @@
 import tensorflow
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, load_model
+from tensorflow.keras.layers import Dense
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras import optimizers, initializers, metrics
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 from tensorflow.keras.optimizers import Adam
-
-from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
 
 from time import time
@@ -34,10 +33,9 @@ checkpoint_dir = os.path.dirname(checkpoint_path)
 modelFileName = "model_age"
 
 def age_mae(y_true, y_pred):
-    true_age = K.sum(y_true * K.arange(0, classesCount, dtype="float32"), axis=-1)
-    pred_age = K.sum(y_pred * K.arange(0, classesCount, dtype="float32"), axis=-1)
-    mae = K.mean(K.abs(true_age - pred_age))
-    return mae
+    true_age = K.sum(y_true * K.arange(5, classesCount*5+5, 5, dtype="float32"), axis=-1)
+    pred_age = K.sum(y_pred * K.arange(5, classesCount*5+5, 5, dtype="float32"), axis=-1)
+    return K.mean(K.abs(true_age - pred_age))
 
 folders = ["UTKFace/"]
 data, labels = [], []
@@ -53,7 +51,7 @@ for folder in folders:
             #print("Age error: " file)
             continue
         age = int(age/5) * 5
-        catName = str(age).zfill(3)+"-cat"
+        catName = str(age).zfill(3)
         meanAge+=age
         if catName not in countCat:
             countCat[catName]=0
@@ -78,7 +76,6 @@ print("cats:", cats)
 train_df = pandas.DataFrame(data={"filename": data, "class": labels})
 
 train_datagen = ImageDataGenerator(rescale=1./255, validation_split=0.2, horizontal_flip=True)
-
 train_generator = train_datagen.flow_from_dataframe(
         dataframe=train_df,
         x_col="filename",
@@ -108,16 +105,20 @@ validation_generator = train_datagen.flow_from_dataframe(
 latest = tensorflow.train.latest_checkpoint(checkpoint_dir)
 if latest:
     print("Load: " + latest)
-    classifier = tensorflow.keras.applications.mobilenet_v2.MobileNetV2(include_top=True, weights=None, input_tensor=None, input_shape=(size, size, 3), pooling=None, classes=classesCount)
+    base_model = tensorflow.keras.applications.mobilenet_v2.MobileNetV2(include_top=False, weights=None, input_tensor=None, input_shape=(size, size, 3), pooling="avg", classes=classesCount)
+    prediction = Dense(units=classesCount, kernel_initializer="he_normal", use_bias=False, activation="softmax", name="pred_age")(base_model.output)
+    classifier = Model(inputs=base_model.input, outputs=prediction)
     classifier.load_weights(latest)
 elif os.path.exists(modelFileName):
     print("Load: " + modelFileName)
     classifier = load_model(modelFileName, custom_objects={"age_mae":age_mae})
 else:
     print("Input size: ", size)
-    classifier = tensorflow.keras.applications.mobilenet_v2.MobileNetV2(include_top=True, weights=None, input_tensor=None, input_shape=(size, size, 3), pooling=None, classes=classesCount)
+    base_model = tensorflow.keras.applications.mobilenet_v2.MobileNetV2(include_top=False, weights=None, input_tensor=None, input_shape=(size, size, 3), pooling="avg", classes=classesCount)
+    prediction = Dense(units=classesCount, kernel_initializer="he_normal", use_bias=False, activation="softmax", name="pred_age")(base_model.output)
+    classifier = Model(inputs=base_model.input, outputs=prediction)
 classifier.compile(optimizer=Adam(lr=lr), loss='categorical_crossentropy', metrics=[age_mae])
-#classifier.summary()
+classifier.summary()
 
 #python3.6 -m tensorboard.main --logdir logs/1
 callbacks = [
@@ -129,6 +130,6 @@ history = classifier.fit(
         shuffle=True,
         epochs=epoch,
         validation_data=validation_generator,
-        class_weight=class_weight)#,
-#        callbacks=callbacks)
+        class_weight=class_weight,
+        callbacks=callbacks)
 classifier.save(modelFileName)
