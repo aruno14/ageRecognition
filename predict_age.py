@@ -15,7 +15,7 @@ def age_mae(y_true, y_pred):
 
 model = load_model(model_name, custom_objects={'age_mae':age_mae})
 for imageName in ["test.jpg"]:
-    print(imageName)
+    print("filename:", imageName)
     test_image = image.load_img(imageName, target_size=image_size)
     test_image = image.img_to_array(test_image)
     test_image = test_image.astype('float32')
@@ -23,5 +23,5 @@ for imageName in ["test.jpg"]:
     test_image = numpy.expand_dims(test_image, axis=0)
     prediction = model.predict(test_image)[0]
     print(prediction)
-    age = numpy.sum(prediction * numpy.arange(2.5, len(prediction)*5, 5, dtype="float32"))
+    age = numpy.sum(prediction * numpy.arange(2.5, len(prediction)*5+2.5, 5, dtype="float32"))
     print(age)

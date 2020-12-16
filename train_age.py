@@ -19,23 +19,23 @@ parser.add_argument("--image_size", type=int, default=48, help="Input image size
 parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
 parser.add_argument("--epoch", type=int, default=15, help="Epoch count")
 parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
-parser.add_argument("--data_divider", type=int, default=1, help="Data divider")
 args = parser.parse_args()
 
 size = args.image_size
 batch_size = args.batch_size
 epoch = args.epoch
-data_divider = args.data_divider
 lr = args.lr
 
 checkpoint_path = "training_age/cp-{epoch:04d}.ckpt"
 checkpoint_dir = os.path.dirname(checkpoint_path)
 modelFileName = "model_age"
+ageRange = 5
 
 def age_mae(y_true, y_pred):
-    true_age = K.sum(y_true * K.arange(5, classesCount*5+5, 5, dtype="float32"), axis=-1)
-    pred_age = K.sum(y_pred * K.arange(5, classesCount*5+5, 5, dtype="float32"), axis=-1)
-    return K.mean(K.abs(true_age - pred_age))
+    true_age = K.sum(y_true * K.arange(ageRange/2, classesCount*ageRange + ageRange/2, ageRange, dtype="float32"), axis=-1)
+    pred_age = K.sum(y_pred * K.arange(ageRange/2, classesCount*ageRange + ageRange/2, ageRange, dtype="float32"), axis=-1)
+    return K.abs(true_age - pred_age)
+#    return K.mean(K.abs(true_age - pred_age))
 
 folders = ["UTKFace/"]
 data, labels = [], []
@@ -50,7 +50,7 @@ for folder in folders:
         if age < 0 or age > 99:
             #print("Age error: " file)
             continue
-        age = int(age/5) * 5
+        age = age//ageRange * 5
         catName = str(age).zfill(3)
         meanAge+=age
         if catName not in countCat:
@@ -59,6 +59,31 @@ for folder in folders:
         data.append(folder + file)
         cats.add(catName)
         labels.append(catName)
+
+"""
+#https://github.com/JingchunCheng/All-Age-Faces-Dataset
+folder = "All-Age-Faces Dataset/aglined faces/"
+for file in glob.glob(folder+"*.jpg"):
+#    print(file)
+    file = file.replace(folder, "").replace(".jpg", "")#00000A02
+#    print(file)
+    id, age = file.split("A")[0:2]
+#    print(age)
+    age = int(age)
+#    id, age = int(id), int(age)
+#    gender = 0
+#    if id <= 7380:
+#        gender = 1
+    age = int(age/5) * 5
+    catName = str(age).zfill(3)
+    meanAge+=age
+    if catName not in countCat:
+        countCat[catName]=0
+    countCat[catName]+=1
+    data.append(folder + file)
+    cats.add(catName)
+    labels.append(catName)
+"""    
 
 print("meanAge: " + str(meanAge/len(data)))
 print("cat number: ", len(countCat))
@@ -80,6 +105,7 @@ train_generator = train_datagen.flow_from_dataframe(
         dataframe=train_df,
         x_col="filename",
         y_col="class",
+        shuffle=True,
         target_size=(size, size),
         batch_size=batch_size,
         subset='training',
@@ -118,7 +144,7 @@ else:
     prediction = Dense(units=classesCount, kernel_initializer="he_normal", use_bias=False, activation="softmax", name="pred_age")(base_model.output)
     classifier = Model(inputs=base_model.input, outputs=prediction)
 classifier.compile(optimizer=Adam(lr=lr), loss='categorical_crossentropy', metrics=[age_mae])
-classifier.summary()
+#classifier.summary()
 
 #python3.6 -m tensorboard.main --logdir logs/1
 callbacks = [
