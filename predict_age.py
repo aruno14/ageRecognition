@@ -1,11 +1,11 @@
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
+from tensorflow.keras import backend as K
 import numpy
 
-image_size = (48, 48)
+image_size = (128, 128)
 model_name = "model_age"
-
 
 def age_mae(y_true, y_pred):
     classesCount=20
@@ -22,6 +22,6 @@ for imageName in ["test.jpg"]:
     test_image /= 255.0
     test_image = numpy.expand_dims(test_image, axis=0)
     prediction = model.predict(test_image)[0]
-    print(prediction)
+    print("prediction", prediction)
     age = numpy.sum(prediction * numpy.arange(2.5, len(prediction)*5+2.5, 5, dtype="float32"))
-    print(age)
+    print("age", age)
