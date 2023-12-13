@@ -3,8 +3,8 @@ from tensorflow.keras.models import load_model
 import argparse
 
 parser = argparse.ArgumentParser(description="Convert model to tflite", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument("--model_folder", type=str, help="Input model folder path")
-parser.add_argument("--output", type=str, help="Output tflite file")
+parser.add_argument("--model_folder", type=str, help="Input model folder path", default="model_age")
+parser.add_argument("--output", type=str, help="Output tflite file", default="model_age.tflite")
 args = parser.parse_args()
 
 converter = tf.lite.TFLiteConverter.from_saved_model(args.model_folder)
